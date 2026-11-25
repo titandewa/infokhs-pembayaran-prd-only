@@ -8,7 +8,8 @@ var ITEMS = [
 var BANKS = ["Bank BNI", "Bank BRI", "Bank Mandiri"];
 var VA_EXAMPLE = "1234 5678 9012 3456"; // contoh, bukan nomor asli
 
-var state = { step: 1, selected: {}, bank: "" };
+// phase: "select" (layar 1-3), "confirm" (layar 4), "bank" (layar 5), "va" (layar 6)
+var state = { phase: "select", selected: {}, bank: "" };
 
 function rupiah(n) {
   return "Rp " + new Intl.NumberFormat("id-ID").format(n);
@@ -30,12 +31,19 @@ function total() {
   return selectedItems().reduce(function (s, i) { return s + i.price; }, 0);
 }
 
+// Nomor layar 1-6. Layar 1-3 mengikuti jumlah item yang sudah dipilih.
+function screenNo() {
+  if (state.phase === "select") return selectedItems().length + 1;
+  if (state.phase === "confirm") return 4;
+  if (state.phase === "bank") return 5;
+  return 6;
+}
+
 function renderRows(listEl, withRemove) {
   listEl.textContent = "";
   selectedItems().forEach(function (i) {
     var li = el("li");
-    var left = el("span", "", i.name + " · " + rupiah(i.price));
-    li.appendChild(left);
+    li.appendChild(el("span", "", i.name + " · " + rupiah(i.price)));
     if (withRemove) {
       var b = el("button", "rm", "Hapus");
       b.type = "button";
@@ -83,7 +91,7 @@ function renderBanks() {
     b.appendChild(el("span", "name", name));
     b.addEventListener("click", function () {
       state.bank = name;
-      state.step = 4;
+      state.phase = "va";
       render();
     });
     li.appendChild(b);
@@ -91,15 +99,22 @@ function renderBanks() {
   });
 }
 
-function render() {
-  var s = state.step;
-  var views = ["view-select", "view-confirm", "view-bank", "view-va"];
-  views.forEach(function (v, idx) { $(v).hidden = idx + 1 !== s; });
+var HINTS = [
+  "Pilih item yang ingin Anda bayar. Setiap item hanya bisa dipilih satu kali.",
+  "HER sudah terpilih. Menekan item yang sama lagi tidak menambah nominal. Pilih UTS untuk melanjutkan.",
+  "HER dan UTS tampil sebagai dua baris terpisah. Menekan item lagi tidak mengubah nominal."
+];
 
-  var titles = ["Pembayaran UKT", "Konfirmasi Pembayaran", "Pilih Bank", "Nomor Virtual Account"];
-  $("title").textContent = titles[s - 1];
-  $("step-label").textContent = s < 4 ? "InfoKHS · Langkah " + s + " dari 3" : "InfoKHS · Selesai";
+function render() {
+  var n = screenNo();
+  var views = { select: "view-select", confirm: "view-confirm", bank: "view-bank", va: "view-va" };
+  Object.keys(views).forEach(function (p) { $(views[p]).hidden = p !== state.phase; });
+
+  var titles = ["Pembayaran UKT", "Pembayaran UKT", "Pembayaran UKT", "Konfirmasi Pembayaran", "Pilih Bank", "Nomor Virtual Account"];
+  $("title").textContent = titles[n - 1];
+  $("step-label").textContent = n < 6 ? "InfoKHS · Langkah " + n + " dari 5" : "InfoKHS · Selesai";
   $("total").textContent = rupiah(total());
+  document.title = "Layar " + n + " · Pembayaran UKT InfoKHS";
 
   var count = selectedItems().length;
   var next = $("btn-next");
@@ -108,20 +123,26 @@ function render() {
   next.hidden = false;
   next.disabled = false;
 
-  if (s === 1) {
+  if (state.phase === "select") {
+    $("select-hint").textContent = HINTS[count > 0 ? count : 0];
+    if (count === 1) {
+      // contoh: HER sudah terpilih -> arahkan memilih item lain
+      var left = selectedItems()[0].name;
+      $("select-hint").textContent = left + " sudah terpilih. Menekan item yang sama lagi tidak menambah nominal. Pilih item lainnya untuk melanjutkan.";
+    }
     renderItems();
     renderRows($("selected-list"), true);
     $("selected-empty").hidden = count > 0;
     next.textContent = "Lanjut ke Konfirmasi";
-    next.disabled = count === 0;
-  } else if (s === 2) {
+    next.disabled = count < 2;
+  } else if (state.phase === "confirm") {
     renderRows($("confirm-list"), false);
     var names = selectedItems().map(function (i) { return i.name; }).join(" dan ");
     $("confirm-note").textContent = "Pilihan Anda: " + names + ", masing-masing satu kali.";
     back.hidden = false;
     back.textContent = "Ubah pilihan";
     next.textContent = "Pilih Bank";
-  } else if (s === 3) {
+  } else if (state.phase === "bank") {
     renderBanks();
     next.hidden = true;
     back.hidden = false;
@@ -135,15 +156,13 @@ function render() {
 }
 
 $("btn-next").addEventListener("click", function () {
-  if (state.step === 4) {
-    state = { step: 1, selected: {}, bank: "" };
-  } else {
-    state.step += 1;
-  }
+  if (state.phase === "select") state.phase = "confirm";
+  else if (state.phase === "confirm") state.phase = "bank";
+  else if (state.phase === "va") state = { phase: "select", selected: {}, bank: "" };
   render();
 });
 $("btn-back").addEventListener("click", function () {
-  state.step = state.step === 3 ? 2 : 1;
+  state.phase = state.phase === "bank" ? "confirm" : "select";
   render();
 });
 
