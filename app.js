@@ -7,9 +7,20 @@ var ITEMS = [
 ];
 var BANKS = ["Bank BNI", "Bank BRI", "Bank Mandiri"];
 var VA_EXAMPLE = "1234 5678 9012 3456"; // contoh, bukan nomor asli
+var KEY = "infokhs-ukt-state";
 
-// phase: "select" (layar 1-3), "confirm" (layar 4), "bank" (layar 5), "va" (layar 6)
-var state = { phase: "select", selected: {}, bank: "" };
+// Pilihan dibawa antar halaman lewat sessionStorage.
+function load() {
+  try {
+    var raw = sessionStorage.getItem(KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* abaikan */ }
+  return { selected: {}, bank: "" };
+}
+function save() {
+  try { sessionStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* abaikan */ }
+}
+var state = load();
 
 function rupiah(n) {
   return "Rp " + new Intl.NumberFormat("id-ID").format(n);
@@ -31,12 +42,21 @@ function total() {
   return selectedItems().reduce(function (s, i) { return s + i.price; }, 0);
 }
 
-// Nomor layar 1-6. Layar 1-3 mengikuti jumlah item yang sudah dipilih.
-function screenNo() {
-  if (state.phase === "select") return selectedItems().length + 1;
-  if (state.phase === "confirm") return 4;
-  if (state.phase === "bank") return 5;
-  return 6;
+// Halaman pemilihan mengikuti jumlah item yang sudah dipilih.
+function selectPage() {
+  var n = selectedItems().length;
+  if (n === 0) return "index.html";
+  if (n === 1) return "item-terpilih.html";
+  return "daftar-item.html";
+}
+
+var body = document.body;
+var kind = body.getAttribute("data-page");
+var file = body.getAttribute("data-file");
+
+function go(target) {
+  if (target === file) render();
+  else window.location.href = target;
 }
 
 function renderRows(listEl, withRemove) {
@@ -50,7 +70,8 @@ function renderRows(listEl, withRemove) {
       b.setAttribute("aria-label", "Hapus " + i.name + " dari daftar");
       b.addEventListener("click", function () {
         delete state.selected[i.id];
-        render();
+        save();
+        go(selectPage());
       });
       li.appendChild(b);
     }
@@ -73,97 +94,87 @@ function renderItems() {
     b.appendChild(info);
     b.appendChild(el("span", "tag", on ? "Terpilih" : "Pilih"));
     b.addEventListener("click", function () {
-      state.selected[i.id] = true; // idempoten: tekan lagi tidak menambah nominal
-      render();
+      state.selected[i.id] = true; // tekan lagi tidak menambah nominal
+      save();
+      go(selectPage());
     });
     li.appendChild(b);
     ul.appendChild(li);
   });
 }
 
-function renderBanks() {
-  var ul = $("banks");
-  ul.textContent = "";
-  BANKS.forEach(function (name) {
-    var li = el("li");
-    var b = el("button", "item");
-    b.type = "button";
-    b.appendChild(el("span", "name", name));
-    b.addEventListener("click", function () {
-      state.bank = name;
-      state.phase = "va";
-      render();
-    });
-    li.appendChild(b);
-    ul.appendChild(li);
-  });
-}
+function init() {
+  var count = selectedItems().length;
 
-var HINTS = [
-  "Pilih item yang ingin Anda bayar. Setiap item hanya bisa dipilih satu kali.",
-  "HER sudah terpilih. Menekan item yang sama lagi tidak menambah nominal. Pilih UTS untuk melanjutkan.",
-  "HER dan UTS tampil sebagai dua baris terpisah. Menekan item lagi tidak mengubah nominal."
-];
+  // Penjaga alur: arahkan ke halaman yang sesuai bila dibuka langsung.
+  if (kind === "select" && file !== selectPage()) { window.location.replace(selectPage()); return false; }
+  if ((kind === "confirm" || kind === "bank" || kind === "va") && count < 2) { window.location.replace(selectPage()); return false; }
+  if (kind === "va" && !state.bank) { window.location.replace("pilih-bank.html"); return false; }
+  return true;
+}
 
 function render() {
-  var n = screenNo();
-  var views = { select: "view-select", confirm: "view-confirm", bank: "view-bank", va: "view-va" };
-  Object.keys(views).forEach(function (p) { $(views[p]).hidden = p !== state.phase; });
-
-  var titles = ["Pembayaran UKT", "Pembayaran UKT", "Pembayaran UKT", "Konfirmasi Pembayaran", "Pilih Bank", "Nomor Virtual Account"];
-  $("title").textContent = titles[n - 1];
-  $("step-label").textContent = n < 6 ? "InfoKHS · Langkah " + n + " dari 5" : "InfoKHS · Selesai";
   $("total").textContent = rupiah(total());
-  document.title = "Layar " + n + " · Pembayaran UKT InfoKHS";
-
   var count = selectedItems().length;
-  var next = $("btn-next");
-  var back = $("btn-back");
-  back.hidden = true;
-  next.hidden = false;
-  next.disabled = false;
 
-  if (state.phase === "select") {
-    $("select-hint").textContent = HINTS[count > 0 ? count : 0];
+  if (kind === "select") {
     if (count === 1) {
-      // contoh: HER sudah terpilih -> arahkan memilih item lain
-      var left = selectedItems()[0].name;
-      $("select-hint").textContent = left + " sudah terpilih. Menekan item yang sama lagi tidak menambah nominal. Pilih item lainnya untuk melanjutkan.";
+      $("select-hint").textContent = selectedItems()[0].name +
+        " sudah terpilih. Menekan item yang sama lagi tidak menambah nominal. Pilih item lainnya untuk melanjutkan.";
     }
     renderItems();
     renderRows($("selected-list"), true);
     $("selected-empty").hidden = count > 0;
-    next.textContent = "Lanjut ke Konfirmasi";
-    next.disabled = count < 2;
-  } else if (state.phase === "confirm") {
+    $("btn-next").disabled = count < 2;
+  } else if (kind === "confirm") {
     renderRows($("confirm-list"), false);
     var names = selectedItems().map(function (i) { return i.name; }).join(" dan ");
     $("confirm-note").textContent = "Pilihan Anda: " + names + ", masing-masing satu kali.";
-    back.hidden = false;
-    back.textContent = "Ubah pilihan";
-    next.textContent = "Pilih Bank";
-  } else if (state.phase === "bank") {
-    renderBanks();
-    next.hidden = true;
-    back.hidden = false;
-    back.textContent = "Kembali ke Konfirmasi";
-  } else {
+  } else if (kind === "bank") {
+    var ul = $("banks");
+    ul.textContent = "";
+    BANKS.forEach(function (name) {
+      var li = el("li");
+      var b = el("button", "item");
+      b.type = "button";
+      b.appendChild(el("span", "name", name));
+      b.addEventListener("click", function () {
+        state.bank = name;
+        save();
+        window.location.href = "nomor-va.html";
+      });
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+  } else if (kind === "va") {
     $("va-bank").textContent = state.bank;
     $("va-number").textContent = VA_EXAMPLE;
     renderRows($("va-list"), false);
-    next.textContent = "Selesai, kembali ke awal";
   }
 }
 
-$("btn-next").addEventListener("click", function () {
-  if (state.phase === "select") state.phase = "confirm";
-  else if (state.phase === "confirm") state.phase = "bank";
-  else if (state.phase === "va") state = { phase: "select", selected: {}, bank: "" };
-  render();
-});
-$("btn-back").addEventListener("click", function () {
-  state.phase = state.phase === "bank" ? "confirm" : "select";
-  render();
-});
+function wire() {
+  var next = $("btn-next");
+  var back = $("btn-back");
+  if (next) {
+    next.addEventListener("click", function () {
+      if (kind === "select") window.location.href = "konfirmasi.html";
+      else if (kind === "confirm") window.location.href = "pilih-bank.html";
+      else if (kind === "va") {
+        state = { selected: {}, bank: "" };
+        save();
+        window.location.href = "index.html";
+      }
+    });
+  }
+  if (back) {
+    back.addEventListener("click", function () {
+      window.location.href = kind === "bank" ? "konfirmasi.html" : "daftar-item.html";
+    });
+  }
+}
 
-render();
+if (init()) {
+  render();
+  wire();
+}

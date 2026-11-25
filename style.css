@@ -27,8 +27,7 @@ body {
 .step { margin: 0 0 4px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 h1 { margin: 0; font-size: 22px; }
 h2 { margin: 0 0 10px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
-section[id^="view-"] { padding: 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
-section[id^="view-"][hidden] { display: none; }
+.view { padding: 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
 p { margin: 0; }
 .muted { color: var(--muted); font-size: 14px; }
 .note { border: 2px solid var(--line); border-radius: 6px; padding: 12px; }

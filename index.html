@@ -3,19 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pembayaran UKT InfoKHS</title>
+<title>Layar 1 · Pembayaran UKT InfoKHS</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-page="select" data-file="index.html">
 <main class="app">
   <header class="bar">
-    <p class="step" id="step-label"></p>
-    <h1 id="title"></h1>
+    <p class="step">InfoKHS · Langkah 1 dari 5</p>
+    <h1>Pembayaran UKT</h1>
   </header>
-
-  <!-- Layar 1: pilih item -->
-  <section id="view-select" aria-labelledby="title">
-    <p id="select-hint"></p>
+  <section class="view">
+    <p id="select-hint">Pilih item yang ingin Anda bayar. Setiap item hanya bisa dipilih satu kali.</p>
     <ul class="items" id="items"></ul>
     <section class="box" aria-label="Daftar item terpilih">
       <h2>Daftar item terpilih</h2>
@@ -23,40 +21,10 @@
       <p class="muted" id="selected-empty">Belum ada item yang dipilih.</p>
     </section>
   </section>
-
-  <!-- Layar 2: konfirmasi -->
-  <section id="view-confirm" hidden>
-    <p>Periksa kembali pilihan Anda sebelum memilih bank.</p>
-    <section class="box" aria-label="Rincian pembayaran UKT">
-      <h2>Rincian pembayaran UKT</h2>
-      <ul class="rows" id="confirm-list"></ul>
-    </section>
-    <p class="note" id="confirm-note"></p>
-  </section>
-
-  <!-- Layar 3: pilih bank -->
-  <section id="view-bank" hidden>
-    <p>Pilih bank untuk memperoleh nomor VA.</p>
-    <ul class="items" id="banks"></ul>
-  </section>
-
-  <!-- Layar 4: nomor VA -->
-  <section id="view-va" hidden>
-    <div class="box va">
-      <p class="muted">Nomor VA (contoh prototype) · <span id="va-bank"></span></p>
-      <p class="va-number" id="va-number"></p>
-    </div>
-    <section class="box" aria-label="Yang akan dibayar">
-      <h2>Yang akan dibayar</h2>
-      <ul class="rows" id="va-list"></ul>
-    </section>
-  </section>
-
   <footer class="foot">
-    <div class="total"><span id="total-label">Total</span><strong id="total">Rp 0</strong></div>
+    <div class="total"><span>Total</span><strong id="total">Rp 0</strong></div>
     <div class="actions">
-      <button type="button" class="btn ghost" id="btn-back" hidden></button>
-      <button type="button" class="btn primary" id="btn-next"></button>
+      <button type="button" class="btn primary" id="btn-next" disabled>Lanjut ke Konfirmasi</button>
     </div>
   </footer>
 </main>
